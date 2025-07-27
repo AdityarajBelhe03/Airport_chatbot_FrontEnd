@@ -45,17 +45,6 @@ This frontend provides an intuitive, chat-based interface for travelers to inter
 - **Offline Indicators**: Connection status monitoring
 - **Error Recovery**: Graceful error handling with user-friendly messages
 
-## Screenshots
-
-### Desktop Interface
-![Desktop Chat Interface](screenshots/desktop-chat.png)
-
-### Mobile Interface
-![Mobile Chat Interface](screenshots/mobile-chat.png)
-
-### Welcome Screen
-![Welcome Screen with Suggestions](screenshots/welcome-screen.png)
-
 ## Installation
 
 ### Quick Start
