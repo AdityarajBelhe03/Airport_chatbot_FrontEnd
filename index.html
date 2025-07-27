@@ -315,6 +315,17 @@
             transform: translateY(-1px);
         }
 
+        .demo-mode {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
         /* Mobile responsiveness */
         @media (max-width: 768px) {
             body {
@@ -425,8 +436,9 @@
     </div>
 
     <script>
-        // Configuration - UPDATED with your actual backend URL
+        // Configuration - Updated with fallback options
         let API_URL = 'https://personalized-airport-rag-chatbot.onrender.com';
+        let DEMO_MODE = false;
         
         const messagesContainer = document.getElementById('messagesContainer');
         const messageInput = document.getElementById('messageInput');
@@ -437,7 +449,17 @@
         let isFirstRequest = true;
         let backendStatus = 'unknown';
         let retryCount = 0;
-        let maxRetries = 3;
+        let maxRetries = 2;
+
+        // Demo responses for when backend is unavailable
+        const demoResponses = {
+            'rain vortex': 'The Rain Vortex at Jewel Changi Airport is the world\'s tallest indoor waterfall at 40 meters! Show times are typically every hour from 9 AM to 10 PM, with a stunning light and sound show after dark. It\'s located in the center of Jewel\'s Forest Valley. 💡 Would you like to know about other attractions at Jewel?',
+            'halal': 'Changi Airport has many halal-certified dining options! Some popular choices include McDonald\'s (T1, T2, T3), Subway, Food Republic food courts, and various local restaurants with halal certification. Look for the halal certification displayed at each outlet. 💡 Would you like specific restaurant recommendations by terminal?',
+            'dining': 'Changi Airport offers world-class dining across all terminals! From local favorites like Singapore noodles and laksa to international cuisines, you\'ll find options 24/7. Food courts, cafes, and fine dining restaurants are available throughout. 💡 Any specific cuisine or dietary requirements you\'re looking for?',
+            'shopping': 'Duty-free shopping at Changi is legendary! You\'ll find savings on alcohol, tobacco, perfumes, chocolates, and luxury goods. Don\'t miss the Singapore-exclusive products and local souvenirs. DFS and other major retailers operate across all terminals. 💡 Looking for any particular brands or products?',
+            'transportation': 'Getting to the city is easy! Options include: MRT (cheapest - about S$2.50, 45 mins), Taxi (S$20-40, 30-45 mins), Private car services, and public buses. The MRT connects directly to Changi Airport station. 💡 Which option would work best for your travel plans?',
+            'jewel': 'Jewel Changi Airport is amazing for families! Key attractions include the Rain Vortex waterfall, Canopy Park with slides and mazes, indoor gardens, shopping, and dining. Many activities are free, while Canopy Park has ticketed attractions. 💡 What age group are you planning activities for?'
+        };
 
         // Auto-resize textarea
         messageInput.addEventListener('input', function() {
@@ -465,9 +487,16 @@
             // Add user message to chat
             addMessage(message, 'user');
 
+            // Check if we should use demo mode
+            if (DEMO_MODE || backendStatus === 'demo') {
+                handleDemoResponse(message);
+                sendButton.disabled = false;
+                return;
+            }
+
             // Show appropriate typing indicator
             if (isFirstRequest || backendStatus !== 'healthy') {
-                showTypingIndicator('Starting up the service... This may take 30-60 seconds.');
+                showTypingIndicator('Connecting to service... This may take 30-60 seconds on first request.');
             } else {
                 showTypingIndicator('Processing your request...');
             }
@@ -476,7 +505,7 @@
                 console.log('Sending request to:', `${API_URL}/chat`);
                 
                 // Extended timeout for first request or if backend was down
-                const timeoutDuration = (isFirstRequest || backendStatus !== 'healthy') ? 90000 : 30000;
+                const timeoutDuration = (isFirstRequest || backendStatus !== 'healthy') ? 120000 : 45000;
                 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
@@ -485,18 +514,13 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Origin': window.location.origin,
-                        'Access-Control-Request-Method': 'POST',
-                        'Access-Control-Request-Headers': 'Content-Type'
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({
                         message: message,
                         session_id: 'web-session-' + Date.now()
                     }),
-                    signal: controller.signal,
-                    mode: 'cors',
-                    credentials: 'omit'
+                    signal: controller.signal
                 });
 
                 clearTimeout(timeoutId);
@@ -526,43 +550,38 @@
                 console.error('Error:', error);
                 retryCount++;
                 
-                let errorMessage = "I'm sorry, I'm having trouble connecting right now. ";
+                let errorMessage = "I'm having trouble connecting to the backend service. ";
                 
                 if (error.name === 'AbortError') {
-                    errorMessage = "The request timed out. The service might be starting up. Please try again in a moment.";
-                } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS') || error.message.includes('ERR_FAILED')) {
-                    errorMessage = "There's a connection issue with the backend service. This often happens when the service is starting up on Render's free tier.";
+                    errorMessage = "The request timed out. The service might be starting up or unavailable.";
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+                    errorMessage = "Connection failed. This usually happens when the backend service is starting up or unavailable.";
                     backendStatus = 'down';
-                } else if (error.message.includes('503')) {
-                    errorMessage = "The service is starting up. Please wait a moment and try again.";
-                    backendStatus = 'starting';
-                } else {
-                    errorMessage += `Error details: ${error.message}`;
                 }
                 
-                if (retryCount < maxRetries) {
-                    errorMessage += `\n\nRetrying automatically in ${retryCount * 2} seconds...`;
+                if (retryCount >= maxRetries) {
+                    // Switch to demo mode after retries exhausted
+                    DEMO_MODE = true;
+                    backendStatus = 'demo';
+                    
+                    const demoNotice = document.createElement('div');
+                    demoNotice.className = 'demo-mode';
+                    demoNotice.innerHTML = '🔧 Backend service unavailable - Running in DEMO mode with sample responses';
+                    messagesContainer.appendChild(demoNotice);
+                    scrollToBottom();
+                    
+                    // Handle the current message in demo mode
+                    setTimeout(() => handleDemoResponse(message), 1000);
+                } else {
+                    errorMessage += `\n\nRetrying automatically in ${retryCount * 3} seconds...`;
+                    
+                    addMessage(errorMessage, 'bot', { error: true });
                     
                     // Auto-retry with exponential backoff
                     setTimeout(() => {
                         messageInput.value = message;
                         sendMessage();
-                    }, retryCount * 2000);
-                } else {
-                    errorMessage += "\n\n🔄 You can try again, or for immediate assistance, please visit one of our information counters located throughout the terminals.";
-                    
-                    const errorDiv = addMessage(errorMessage, 'bot', { error: true });
-                    
-                    // Add manual retry button
-                    const retryButton = document.createElement('button');
-                    retryButton.className = 'retry-button';
-                    retryButton.textContent = 'Try Again';
-                    retryButton.onclick = () => {
-                        retryCount = 0; // Reset retry count
-                        messageInput.value = message;
-                        sendMessage();
-                    };
-                    errorDiv.appendChild(retryButton);
+                    }, retryCount * 3000);
                 }
                 
             } finally {
@@ -570,6 +589,36 @@
                 sendButton.disabled = false;
                 messageInput.focus();
             }
+        }
+
+        function handleDemoResponse(message) {
+            showTypingIndicator('Generating demo response...');
+            
+            setTimeout(() => {
+                const messageLower = message.toLowerCase();
+                let response = "I'm currently running in demo mode. ";
+                
+                // Find matching demo response
+                for (const [keyword, demoResponse] of Object.entries(demoResponses)) {
+                    if (messageLower.includes(keyword)) {
+                        response = demoResponse;
+                        break;
+                    }
+                }
+                
+                // Default demo response
+                if (response === "I'm currently running in demo mode. ") {
+                    response = "I'm currently running in demo mode with limited responses. For the full Changi Airport experience with real-time information, the backend service needs to be available. You can visit changiairport.com for official information, or try asking about: Rain Vortex, halal dining, shopping, transportation, or Jewel attractions. 💡 Is there anything specific about Changi Airport you'd like to know?";
+                }
+                
+                addMessage(response, 'bot', { 
+                    sources: ['Demo Mode - Limited Information'],
+                    retrievedCount: 0,
+                    timestamp: new Date().toISOString()
+                });
+                
+                hideTypingIndicator();
+            }, 1500);
         }
 
         function sendSuggestion(suggestion) {
@@ -592,10 +641,10 @@
                 `;
             }
 
-            if (metadata.retrievedCount || metadata.timestamp) {
+            if (metadata.retrievedCount !== undefined || metadata.timestamp) {
                 messageHTML += `
                     <div class="message-info">
-                        <span>${metadata.retrievedCount ? `${metadata.retrievedCount} sources found` : ''}</span>
+                        <span>${metadata.retrievedCount !== undefined ? `${metadata.retrievedCount} sources found` : ''}</span>
                         <span>${metadata.timestamp ? new Date(metadata.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</span>
                     </div>
                 `;
@@ -636,17 +685,14 @@
                 console.log('Testing connection to:', `${API_URL}/health`);
                 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                const timeoutId = setTimeout(() => controller.abort(), 20000);
 
                 const response = await fetch(`${API_URL}/health`, {
                     method: 'GET',
                     headers: {
-                        'Accept': 'application/json',
-                        'Origin': window.location.origin
+                        'Accept': 'application/json'
                     },
-                    signal: controller.signal,
-                    mode: 'cors',
-                    credentials: 'omit'
+                    signal: controller.signal
                 });
                 
                 clearTimeout(timeoutId);
@@ -654,29 +700,33 @@
                 if (response.ok) {
                     const data = await response.json();
                     console.log('✅ Backend connection successful:', data);
-                    backendStatus = data.status;
+                    backendStatus = data.status || 'healthy';
                     
-                    if (data.status === 'healthy') {
+                    if (data.status === 'healthy' || data.status === 'starting') {
                         showConnectionStatus('🚀 Connected to backend successfully!', 'success');
                     } else {
-                        showConnectionStatus('⚠️ Backend service is starting up. First request may take 30-60 seconds.', 'warning');
+                        showConnectionStatus('⚠️ Backend service is starting up. This may take a moment.', 'warning');
                     }
                 } else {
                     console.warn('⚠️ Backend health check failed:', response.status);
-                    backendStatus = 'unhealthy';
-                    showConnectionStatus('⚠️ Backend service is starting up. First request may take 30-60 seconds.', 'warning');
+                    throw new Error(`HTTP ${response.status}`);
                 }
             } catch (error) {
                 console.error('❌ Backend connection failed:', error);
                 backendStatus = 'down';
                 
                 if (error.name === 'AbortError') {
-                    showConnectionStatus('⏱️ Backend is starting up. This can take 30-60 seconds on free hosting.', 'warning');
-                } else if (error.message.includes('CORS') || error.message.includes('ERR_FAILED')) {
-                    showConnectionStatus('🔄 Backend service is starting up. CORS will work once it\'s ready.', 'warning');
+                    showConnectionStatus('⏱️ Backend connection timeout. Service may be starting up or unavailable.', 'warning');
                 } else {
-                    showConnectionStatus('❌ Unable to connect to backend. Service may be starting up.', 'error');
+                    showConnectionStatus('❌ Backend service unavailable. Will switch to demo mode if needed.', 'error');
                 }
+                
+                // After 30 seconds, suggest demo mode
+                setTimeout(() => {
+                    if (backendStatus === 'down') {
+                        showConnectionStatus('💡 Click any suggestion to try demo mode with sample responses!', 'warning');
+                    }
+                }, 30000);
             }
         }
 
@@ -686,12 +736,14 @@
             statusDiv.innerHTML = message;
             messagesContainer.appendChild(statusDiv);
             
-            // Auto-remove after 20 seconds
-            setTimeout(() => {
-                if (statusDiv.parentNode) {
-                    statusDiv.parentNode.removeChild(statusDiv);
-                }
-            }, 20000);
+            // Auto-remove success messages after 10 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (statusDiv.parentNode) {
+                        statusDiv.parentNode.removeChild(statusDiv);
+                    }
+                }, 10000);
+            }
             
             scrollToBottom();
         }
@@ -703,21 +755,17 @@
             // Test connection after a short delay
             setTimeout(testConnection, 1000);
 
-            // Show initial helpful message
-            setTimeout(() => {
-                if (backendStatus === 'unknown') {
-                    showConnectionStatus('ℹ️ Connecting to backend service... First request may take 30-60 seconds.', 'warning');
-                }
-            }, 3000);
+            console.log('Frontend initialized');
+            console.log('API URL:', API_URL);
         });
 
-        // Retry connection every 30 seconds if backend is down
+        // Retry connection every 45 seconds if backend is down
         setInterval(() => {
             if (backendStatus === 'down' || backendStatus === 'unknown') {
                 console.log('Retrying backend connection...');
                 testConnection();
             }
-        }, 30000);
+        }, 45000);
 
         // Auto-detect API URL for development
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
