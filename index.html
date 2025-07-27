@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changi Airport Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-header::before {
+            content: '✈️';
+            font-size: 2rem;
+            position: absolute;
+            left: 25px;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(-50%) translateX(0px); }
+            50% { transform: translateY(-50%) translateX(10px); }
+        }
+
+        .chat-header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .bot-message {
+            background: #f8f9fa;
+            color: #333;
+            align-self: flex-start;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-info {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sources {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(79, 172, 254, 0.1);
+            border-radius: 10px;
+            font-size: 0.85rem;
+        }
+
+        .sources-title {
+            font-weight: 600;
+            color: #4facfe;
+            margin-bottom: 5px;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #messageInput {
+            width: 100%;
+            min-height: 50px;
+            max-height: 120px;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        #messageInput:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        #sendButton {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        #sendButton:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 172, 254, 0.4);
+        }
+
+        #sendButton:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 20px;
+            padding: 15px 20px;
+            margin: 10px 0;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #999;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+
+        .welcome-message h2 {
+            color: #4facfe;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .suggestion-chip {
+            background: rgba(79, 172, 254, 0.1);
+            color: #4facfe;
+            border: 1px solid rgba(79, 172, 254, 0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .suggestion-chip:hover {
+            background: #4facfe;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c66;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .connection-status {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .connection-status.error {
+            background: #fee;
+            border-color: #f44336;
+            color: #c62828;
+        }
+
+        .api-url-display {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-family: monospace;
+            opacity: 0.7;
+            z-index: 1000;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .chat-container {
+                height: 95vh;
+                border-radius: 15px;
+            }
+
+            .chat-header {
+                padding: 20px 15px;
+            }
+
+            .chat-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .messages-container {
+                padding: 15px;
+            }
+
+            .message {
+                max-width: 85%;
+                padding: 12px 16px;
+            }
+
+            .input-container {
+                padding: 15px;
+            }
+
+            .suggestions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .suggestion-chip {
+                width: 100%;
+                max-width: 250px;
+                text-align: center;
+            }
+
+            .api-url-display {
+                display: none;
+            }
+        }
+
+        /* Scrollbar styling */
+        .messages-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>Changi Airport Assistant</h1>
+            <p>Your guide to Singapore's world-class airport experience</p>
+        </div>
+
+        <div class="messages-container" id="messagesContainer">
+            <div class="welcome-message">
+                <h2>🛫 Welcome to Changi Airport!</h2>
+                <p>I'm here to help you navigate our world-class facilities, from dining and shopping to transportation and the amazing attractions at Jewel Changi Airport.</p>
+                
+                <div class="suggestions">
+                    <div class="suggestion-chip" onclick="sendSuggestion('Tell me about Rain Vortex show times')">🌊 Rain Vortex Shows</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Best halal dining options')">🍽️ Halal Dining</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Duty-free shopping deals')">🛍️ Duty-Free Shopping</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('How to get to the city from airport')">🚊 Transportation</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Family activities at Jewel')">👨‍👩‍👧‍👦 Family Activities</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Ask me anything about Changi Airport..."
+                    rows="1"
+                ></textarea>
+            </div>
+            <button id="sendButton" onclick="sendMessage()">
+                ➤
+            </button>
+        </div>
+    </div>
+
+    <!-- Display current API URL for debugging -->
+    <div class="api-url-display" id="apiUrlDisplay"></div>
+
+    <script>
+        // Configuration - Backend URL (REPLACE WITH YOUR ACTUAL BACKEND URL)
+        const API_URL = 'https://personalized-airport-rag-chatbot.onrender.com';
+        
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        // Display current API URL for debugging
+        document.getElementById('apiUrlDisplay').textContent = `API: ${API_URL}`;
+
+        // Auto-resize textarea
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        // Send message on Enter (but allow Shift+Enter for new lines)
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || sendButton.disabled) return;
+
+            // Clear input and disable send button
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            sendButton.disabled = true;
+
+            // Add user message to chat
+            addMessage(message, 'user');
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                console.log('Sending request to:', `${API_URL}/chat`);
+                
+                const response = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: 'web-session-' + Date.now()
+                    })
+                });
+
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                // Add bot response to chat
+                addMessage(data.response, 'bot', {
+                    sources: data.sources,
+                    retrievedCount: data.retrieved_count,
+                    timestamp: data.timestamp
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                let errorMessage = "I'm sorry, I'm having trouble connecting right now. ";
+                
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage += "This might be because the backend service is starting up (Render free tier). Please wait a moment and try again. ";
+                } else {
+                    errorMessage += `Error: ${error.message}. `;
+                }
+                
+                errorMessage += "For immediate assistance, please visit one of our information counters located throughout the terminals.";
+                
+                addMessage(errorMessage, 'bot', { error: true });
+            } finally {
+                hideTypingIndicator();
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        function sendSuggestion(suggestion) {
+            messageInput.value = suggestion;
+            sendMessage();
+        }
+
+        function addMessage(content, sender, metadata = {}) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            let messageHTML = `<div class="message-content">${content}</div>`;
+            
+            if (metadata.sources && metadata.sources.length > 0) {
+                messageHTML += `
+                    <div class="sources">
+                        <div class="sources-title">📚 Sources:</div>
+                        ${metadata.sources.map(source => `<div>• ${source}</div>`).join('')}
+                    </div>
+                `;
+            }
+
+            if (metadata.retrievedCount || metadata.timestamp) {
+                messageHTML += `
+                    <div class="message-info">
+                        <span>${metadata.retrievedCount ? `${metadata.retrievedCount} sources found` : ''}</span>
+                        <span>${metadata.timestamp ? new Date(metadata.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</span>
+                    </div>
+                `;
+            }
+
+            messageDiv.innerHTML = messageHTML;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+
+            // Hide welcome message after first interaction
+            const welcomeMessage = document.querySelector('.welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+        }
+
+        function showTypingIndicator() {
+            typingIndicator.style.display = 'flex';
+            scrollToBottom();
+        }
+
+        function hideTypingIndicator() {
+            typingIndicator.style.display = 'none';
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 100);
+        }
+
+        // Test backend connection on load
+        async function testConnection() {
+            try {
+                console.log('Testing connection to:', `${API_URL}/health`);
+                
+                const response = await fetch(`${API_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Backend connection successful:', data);
+                    showConnectionStatus('Connected to backend successfully! 🚀', 'success');
+                } else {
+                    console.warn('⚠️ Backend health check failed:', response.status);
+                    showConnectionStatus('Backend starting up... This may take a moment on free tier.', 'warning');
+                }
+            } catch (error) {
+                console.error('❌ Backend connection failed:', error);
+                showConnectionStatus('Backend is starting up. First request may take 30-60 seconds on free tier.', 'error');
+            }
+        }
+
+        function showConnectionStatus(message, type) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `connection-status ${type === 'error' ? 'error' : ''}`;
+            statusDiv.innerHTML = message;
+            messagesContainer.appendChild(statusDiv);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 10000);
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            messageInput.focus();
+            
+            // Test connection after a short delay
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+</html>
