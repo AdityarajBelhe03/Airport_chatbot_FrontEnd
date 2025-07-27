@@ -203,6 +203,7 @@
         .typing-dots {
             display: flex;
             gap: 4px;
+            align-items: center;
         }
 
         .typing-dots span {
@@ -215,6 +216,12 @@
 
         .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        .typing-text {
+            margin-left: 10px;
+            color: #666;
+            font-size: 0.9rem;
+        }
 
         @keyframes typing {
             0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
@@ -279,24 +286,33 @@
             font-size: 0.9rem;
         }
 
+        .connection-status.warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+
         .connection-status.error {
             background: #fee;
             border-color: #f44336;
             color: #c62828;
         }
 
-        .api-url-display {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.8);
+        .retry-button {
+            background: #4facfe;
             color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.75rem;
-            font-family: monospace;
-            opacity: 0.7;
-            z-index: 1000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .retry-button:hover {
+            background: #3d8bfe;
+            transform: translateY(-1px);
         }
 
         /* Mobile responsiveness */
@@ -340,10 +356,6 @@
                 width: 100%;
                 max-width: 250px;
                 text-align: center;
-            }
-
-            .api-url-display {
-                display: none;
             }
         }
 
@@ -395,6 +407,7 @@
                 <span></span>
                 <span></span>
             </div>
+            <div class="typing-text" id="typingText">Processing your request...</div>
         </div>
 
         <div class="input-container">
@@ -411,20 +424,17 @@
         </div>
     </div>
 
-    <!-- Display current API URL for debugging -->
-    <div class="api-url-display" id="apiUrlDisplay"></div>
-
     <script>
-        // Configuration - Backend URL (REPLACE WITH YOUR ACTUAL BACKEND URL)
+        // Configuration - REPLACE WITH YOUR ACTUAL BACKEND URL
         const API_URL = 'https://personalized-airport-rag-chatbot.onrender.com';
         
         const messagesContainer = document.getElementById('messagesContainer');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
         const typingIndicator = document.getElementById('typingIndicator');
+        const typingText = document.getElementById('typingText');
 
-        // Display current API URL for debugging
-        document.getElementById('apiUrlDisplay').textContent = `API: ${API_URL}`;
+        let isFirstRequest = true;
 
         // Auto-resize textarea
         messageInput.addEventListener('input', function() {
@@ -452,12 +462,22 @@
             // Add user message to chat
             addMessage(message, 'user');
 
-            // Show typing indicator
-            showTypingIndicator();
+            // Show appropriate typing indicator
+            if (isFirstRequest) {
+                showTypingIndicator('Waking up the backend service... This may take 30-60 seconds.');
+            } else {
+                showTypingIndicator('Processing your request...');
+            }
 
             try {
                 console.log('Sending request to:', `${API_URL}/chat`);
                 
+                // Extended timeout for first request
+                const timeoutDuration = isFirstRequest ? 90000 : 30000; // 90s for first request, 30s for others
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+
                 const response = await fetch(`${API_URL}/chat`, {
                     method: 'POST',
                     headers: {
@@ -467,15 +487,17 @@
                     body: JSON.stringify({
                         message: message,
                         session_id: 'web-session-' + Date.now()
-                    })
+                    }),
+                    signal: controller.signal
                 });
 
+                clearTimeout(timeoutId);
                 console.log('Response status:', response.status);
 
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('Error response:', errorText);
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
                 }
 
                 const data = await response.json();
@@ -488,19 +510,34 @@
                     timestamp: data.timestamp
                 });
 
+                isFirstRequest = false; // Mark that we've made our first request
+
             } catch (error) {
                 console.error('Error:', error);
                 let errorMessage = "I'm sorry, I'm having trouble connecting right now. ";
                 
-                if (error.message.includes('Failed to fetch')) {
-                    errorMessage += "This might be because the backend service is starting up (Render free tier). Please wait a moment and try again. ";
+                if (error.name === 'AbortError') {
+                    errorMessage = "The request timed out. The backend service might be starting up. Please try again in a moment.";
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+                    errorMessage = "There's a connection issue with the backend service. This is often due to the service starting up on Render's free tier, which can take 30-60 seconds.";
                 } else {
-                    errorMessage += `Error: ${error.message}. `;
+                    errorMessage += `Error: ${error.message}`;
                 }
                 
-                errorMessage += "For immediate assistance, please visit one of our information counters located throughout the terminals.";
+                errorMessage += "\n\nFor immediate assistance, please visit one of our information counters located throughout the terminals.";
                 
-                addMessage(errorMessage, 'bot', { error: true });
+                const errorDiv = addMessage(errorMessage, 'bot', { error: true });
+                
+                // Add retry button
+                const retryButton = document.createElement('button');
+                retryButton.className = 'retry-button';
+                retryButton.textContent = 'Try Again';
+                retryButton.onclick = () => {
+                    messageInput.value = message;
+                    sendMessage();
+                };
+                errorDiv.appendChild(retryButton);
+                
             } finally {
                 hideTypingIndicator();
                 sendButton.disabled = false;
@@ -546,9 +583,12 @@
             if (welcomeMessage) {
                 welcomeMessage.style.display = 'none';
             }
+
+            return messageDiv;
         }
 
-        function showTypingIndicator() {
+        function showTypingIndicator(text = 'Processing your request...') {
+            typingText.textContent = text;
             typingIndicator.style.display = 'flex';
             scrollToBottom();
         }
@@ -568,39 +608,49 @@
             try {
                 console.log('Testing connection to:', `${API_URL}/health`);
                 
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for health check
+
                 const response = await fetch(`${API_URL}/health`, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json'
-                    }
+                    },
+                    signal: controller.signal
                 });
                 
+                clearTimeout(timeoutId);
+
                 if (response.ok) {
                     const data = await response.json();
                     console.log('✅ Backend connection successful:', data);
-                    showConnectionStatus('Connected to backend successfully! 🚀', 'success');
+                    showConnectionStatus('🚀 Connected to backend successfully!', 'success');
                 } else {
                     console.warn('⚠️ Backend health check failed:', response.status);
-                    showConnectionStatus('Backend starting up... This may take a moment on free tier.', 'warning');
+                    showConnectionStatus('⚠️ Backend service is starting up. First request may take 30-60 seconds.', 'warning');
                 }
             } catch (error) {
                 console.error('❌ Backend connection failed:', error);
-                showConnectionStatus('Backend is starting up. First request may take 30-60 seconds on free tier.', 'error');
+                if (error.name === 'AbortError') {
+                    showConnectionStatus('⏱️ Backend is starting up. This can take 30-60 seconds on free tier.', 'warning');
+                } else {
+                    showConnectionStatus('❌ Unable to connect to backend. Service may be starting up.', 'error');
+                }
             }
         }
 
         function showConnectionStatus(message, type) {
             const statusDiv = document.createElement('div');
-            statusDiv.className = `connection-status ${type === 'error' ? 'error' : ''}`;
+            statusDiv.className = `connection-status ${type}`;
             statusDiv.innerHTML = message;
             messagesContainer.appendChild(statusDiv);
             
-            // Auto-remove after 10 seconds
+            // Auto-remove after 15 seconds
             setTimeout(() => {
                 if (statusDiv.parentNode) {
                     statusDiv.parentNode.removeChild(statusDiv);
                 }
-            }, 10000);
+            }, 15000);
         }
 
         // Initialize when DOM is loaded
@@ -609,6 +659,11 @@
             
             // Test connection after a short delay
             setTimeout(testConnection, 1000);
+
+            // Show initial warning about cold start
+            setTimeout(() => {
+                showConnectionStatus('ℹ️ Note: First request may take 30-60 seconds as the backend service starts up.', 'warning');
+            }, 2000);
         });
     </script>
 </body>
