@@ -425,8 +425,8 @@
     </div>
 
     <script>
-        // Configuration - USING YOUR ACTUAL BACKEND URL
-        const API_URL = 'https://personalized-airport-rag-chatbot.onrender.com';
+        // Configuration - Update this with your backend URL
+        let API_URL = 'https://personalized-airport-rag-chatbot.onrender.com';
         
         const messagesContainer = document.getElementById('messagesContainer');
         const messageInput = document.getElementById('messageInput');
@@ -436,6 +436,8 @@
 
         let isFirstRequest = true;
         let backendStatus = 'unknown';
+        let retryCount = 0;
+        let maxRetries = 3;
 
         // Auto-resize textarea
         messageInput.addEventListener('input', function() {
@@ -464,7 +466,7 @@
             addMessage(message, 'user');
 
             // Show appropriate typing indicator
-            if (isFirstRequest) {
+            if (isFirstRequest || backendStatus !== 'healthy') {
                 showTypingIndicator('Starting up the service... This may take 30-60 seconds.');
             } else {
                 showTypingIndicator('Processing your request...');
@@ -484,14 +486,17 @@
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'Origin': window.location.origin
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type'
                     },
                     body: JSON.stringify({
                         message: message,
                         session_id: 'web-session-' + Date.now()
                     }),
                     signal: controller.signal,
-                    mode: 'cors'
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
 
                 clearTimeout(timeoutId);
@@ -515,15 +520,18 @@
 
                 isFirstRequest = false;
                 backendStatus = 'healthy';
+                retryCount = 0;
 
             } catch (error) {
                 console.error('Error:', error);
+                retryCount++;
+                
                 let errorMessage = "I'm sorry, I'm having trouble connecting right now. ";
                 
                 if (error.name === 'AbortError') {
                     errorMessage = "The request timed out. The service might be starting up. Please try again in a moment.";
                 } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS') || error.message.includes('ERR_FAILED')) {
-                    errorMessage = "There's a connection issue with the backend service. This often happens when the service is starting up on Render's free tier, which can take 30-60 seconds.";
+                    errorMessage = "There's a connection issue with the backend service. This often happens when the service is starting up on Render's free tier.";
                     backendStatus = 'down';
                 } else if (error.message.includes('503')) {
                     errorMessage = "The service is starting up. Please wait a moment and try again.";
@@ -532,19 +540,30 @@
                     errorMessage += `Error details: ${error.message}`;
                 }
                 
-                errorMessage += "\n\n🔄 You can try again, or for immediate assistance, please visit one of our information counters located throughout the terminals.";
-                
-                const errorDiv = addMessage(errorMessage, 'bot', { error: true });
-                
-                // Add retry button
-                const retryButton = document.createElement('button');
-                retryButton.className = 'retry-button';
-                retryButton.textContent = 'Try Again';
-                retryButton.onclick = () => {
-                    messageInput.value = message;
-                    sendMessage();
-                };
-                errorDiv.appendChild(retryButton);
+                if (retryCount < maxRetries) {
+                    errorMessage += `\n\nRetrying automatically in ${retryCount * 2} seconds...`;
+                    
+                    // Auto-retry with exponential backoff
+                    setTimeout(() => {
+                        messageInput.value = message;
+                        sendMessage();
+                    }, retryCount * 2000);
+                } else {
+                    errorMessage += "\n\n🔄 You can try again, or for immediate assistance, please visit one of our information counters located throughout the terminals.";
+                    
+                    const errorDiv = addMessage(errorMessage, 'bot', { error: true });
+                    
+                    // Add manual retry button
+                    const retryButton = document.createElement('button');
+                    retryButton.className = 'retry-button';
+                    retryButton.textContent = 'Try Again';
+                    retryButton.onclick = () => {
+                        retryCount = 0; // Reset retry count
+                        messageInput.value = message;
+                        sendMessage();
+                    };
+                    errorDiv.appendChild(retryButton);
+                }
                 
             } finally {
                 hideTypingIndicator();
@@ -617,7 +636,7 @@
                 console.log('Testing connection to:', `${API_URL}/health`);
                 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for health check
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
 
                 const response = await fetch(`${API_URL}/health`, {
                     method: 'GET',
@@ -626,7 +645,8 @@
                         'Origin': window.location.origin
                     },
                     signal: controller.signal,
-                    mode: 'cors'
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
                 
                 clearTimeout(timeoutId);
@@ -698,6 +718,12 @@
                 testConnection();
             }
         }, 30000);
+
+        // Auto-detect API URL for development
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            API_URL = 'http://localhost:8000';
+            console.log('Development mode detected, using local API:', API_URL);
+        }
     </script>
 </body>
 </html>
