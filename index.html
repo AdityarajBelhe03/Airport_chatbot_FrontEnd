@@ -425,7 +425,7 @@
     </div>
 
     <script>
-        // Configuration - REPLACE WITH YOUR ACTUAL BACKEND URL
+        // Configuration - USING YOUR ACTUAL BACKEND URL
         const API_URL = 'https://personalized-airport-rag-chatbot.onrender.com';
         
         const messagesContainer = document.getElementById('messagesContainer');
@@ -435,6 +435,7 @@
         const typingText = document.getElementById('typingText');
 
         let isFirstRequest = true;
+        let backendStatus = 'unknown';
 
         // Auto-resize textarea
         messageInput.addEventListener('input', function() {
@@ -464,7 +465,7 @@
 
             // Show appropriate typing indicator
             if (isFirstRequest) {
-                showTypingIndicator('Waking up the backend service... This may take 30-60 seconds.');
+                showTypingIndicator('Starting up the service... This may take 30-60 seconds.');
             } else {
                 showTypingIndicator('Processing your request...');
             }
@@ -472,8 +473,8 @@
             try {
                 console.log('Sending request to:', `${API_URL}/chat`);
                 
-                // Extended timeout for first request
-                const timeoutDuration = isFirstRequest ? 90000 : 30000; // 90s for first request, 30s for others
+                // Extended timeout for first request or if backend was down
+                const timeoutDuration = (isFirstRequest || backendStatus !== 'healthy') ? 90000 : 30000;
                 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
@@ -482,13 +483,15 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
                     },
                     body: JSON.stringify({
                         message: message,
                         session_id: 'web-session-' + Date.now()
                     }),
-                    signal: controller.signal
+                    signal: controller.signal,
+                    mode: 'cors'
                 });
 
                 clearTimeout(timeoutId);
@@ -497,7 +500,7 @@
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('Error response:', errorText);
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
@@ -510,21 +513,26 @@
                     timestamp: data.timestamp
                 });
 
-                isFirstRequest = false; // Mark that we've made our first request
+                isFirstRequest = false;
+                backendStatus = 'healthy';
 
             } catch (error) {
                 console.error('Error:', error);
                 let errorMessage = "I'm sorry, I'm having trouble connecting right now. ";
                 
                 if (error.name === 'AbortError') {
-                    errorMessage = "The request timed out. The backend service might be starting up. Please try again in a moment.";
-                } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-                    errorMessage = "There's a connection issue with the backend service. This is often due to the service starting up on Render's free tier, which can take 30-60 seconds.";
+                    errorMessage = "The request timed out. The service might be starting up. Please try again in a moment.";
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS') || error.message.includes('ERR_FAILED')) {
+                    errorMessage = "There's a connection issue with the backend service. This often happens when the service is starting up on Render's free tier, which can take 30-60 seconds.";
+                    backendStatus = 'down';
+                } else if (error.message.includes('503')) {
+                    errorMessage = "The service is starting up. Please wait a moment and try again.";
+                    backendStatus = 'starting';
                 } else {
-                    errorMessage += `Error: ${error.message}`;
+                    errorMessage += `Error details: ${error.message}`;
                 }
                 
-                errorMessage += "\n\nFor immediate assistance, please visit one of our information counters located throughout the terminals.";
+                errorMessage += "\n\n🔄 You can try again, or for immediate assistance, please visit one of our information counters located throughout the terminals.";
                 
                 const errorDiv = addMessage(errorMessage, 'bot', { error: true });
                 
@@ -609,14 +617,16 @@
                 console.log('Testing connection to:', `${API_URL}/health`);
                 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for health check
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for health check
 
                 const response = await fetch(`${API_URL}/health`, {
                     method: 'GET',
                     headers: {
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
                     },
-                    signal: controller.signal
+                    signal: controller.signal,
+                    mode: 'cors'
                 });
                 
                 clearTimeout(timeoutId);
@@ -624,15 +634,26 @@
                 if (response.ok) {
                     const data = await response.json();
                     console.log('✅ Backend connection successful:', data);
-                    showConnectionStatus('🚀 Connected to backend successfully!', 'success');
+                    backendStatus = data.status;
+                    
+                    if (data.status === 'healthy') {
+                        showConnectionStatus('🚀 Connected to backend successfully!', 'success');
+                    } else {
+                        showConnectionStatus('⚠️ Backend service is starting up. First request may take 30-60 seconds.', 'warning');
+                    }
                 } else {
                     console.warn('⚠️ Backend health check failed:', response.status);
+                    backendStatus = 'unhealthy';
                     showConnectionStatus('⚠️ Backend service is starting up. First request may take 30-60 seconds.', 'warning');
                 }
             } catch (error) {
                 console.error('❌ Backend connection failed:', error);
+                backendStatus = 'down';
+                
                 if (error.name === 'AbortError') {
-                    showConnectionStatus('⏱️ Backend is starting up. This can take 30-60 seconds on free tier.', 'warning');
+                    showConnectionStatus('⏱️ Backend is starting up. This can take 30-60 seconds on free hosting.', 'warning');
+                } else if (error.message.includes('CORS') || error.message.includes('ERR_FAILED')) {
+                    showConnectionStatus('🔄 Backend service is starting up. CORS will work once it\'s ready.', 'warning');
                 } else {
                     showConnectionStatus('❌ Unable to connect to backend. Service may be starting up.', 'error');
                 }
@@ -645,12 +666,14 @@
             statusDiv.innerHTML = message;
             messagesContainer.appendChild(statusDiv);
             
-            // Auto-remove after 15 seconds
+            // Auto-remove after 20 seconds
             setTimeout(() => {
                 if (statusDiv.parentNode) {
                     statusDiv.parentNode.removeChild(statusDiv);
                 }
-            }, 15000);
+            }, 20000);
+            
+            scrollToBottom();
         }
 
         // Initialize when DOM is loaded
@@ -660,11 +683,21 @@
             // Test connection after a short delay
             setTimeout(testConnection, 1000);
 
-            // Show initial warning about cold start
+            // Show initial helpful message
             setTimeout(() => {
-                showConnectionStatus('ℹ️ Note: First request may take 30-60 seconds as the backend service starts up.', 'warning');
-            }, 2000);
+                if (backendStatus === 'unknown') {
+                    showConnectionStatus('ℹ️ Connecting to backend service... First request may take 30-60 seconds.', 'warning');
+                }
+            }, 3000);
         });
+
+        // Retry connection every 30 seconds if backend is down
+        setInterval(() => {
+            if (backendStatus === 'down' || backendStatus === 'unknown') {
+                console.log('Retrying backend connection...');
+                testConnection();
+            }
+        }, 30000);
     </script>
 </body>
 </html>
