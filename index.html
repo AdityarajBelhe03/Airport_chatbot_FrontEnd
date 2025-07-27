@@ -111,23 +111,7 @@
             font-size: 0.8rem;
             opacity: 0.7;
             margin-top: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .sources {
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(79, 172, 254, 0.1);
-            border-radius: 10px;
-            font-size: 0.85rem;
-        }
-
-        .sources-title {
-            font-weight: 600;
-            color: #4facfe;
-            margin-bottom: 5px;
+            text-align: right;
         }
 
         .input-container {
@@ -298,23 +282,6 @@
             color: #c62828;
         }
 
-        .retry-button {
-            background: #4facfe;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .retry-button:hover {
-            background: #3d8bfe;
-            transform: translateY(-1px);
-        }
-
         .demo-mode {
             background: #fff3cd;
             border: 2px solid #ffc107;
@@ -403,11 +370,11 @@
                 <p>I'm here to help you navigate our world-class facilities, from dining and shopping to transportation and the amazing attractions at Jewel Changi Airport.</p>
                 
                 <div class="suggestions">
-                    <div class="suggestion-chip" onclick="sendSuggestion('Tell me about Rain Vortex show times')">🌊 Rain Vortex Shows</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('Best halal dining options')">🍽️ Halal Dining</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('Duty-free shopping deals')">🛍️ Duty-Free Shopping</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('How to get to the city from airport')">🚊 Transportation</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('Family activities at Jewel')">👨‍👩‍👧‍👦 Family Activities</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Rain Vortex show times')">🌊 Rain Vortex</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Halal dining options')">🍽️ Halal Food</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Duty-free shopping')">🛍️ Duty-Free</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Transportation to city')">🚊 Transport</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Jewel attractions')">✨ Jewel</div>
                 </div>
             </div>
         </div>
@@ -436,7 +403,7 @@
     </div>
 
     <script>
-        // Configuration - Updated with fallback options
+        // Configuration
         let API_URL = 'https://personalized-airport-rag-chatbot.onrender.com';
         let DEMO_MODE = false;
         
@@ -451,14 +418,19 @@
         let retryCount = 0;
         let maxRetries = 2;
 
-        // Demo responses for when backend is unavailable
+        // Updated demo responses (concise, no suggestions)
         const demoResponses = {
-            'rain vortex': 'The Rain Vortex at Jewel Changi Airport is the world\'s tallest indoor waterfall at 40 meters! Show times are typically every hour from 9 AM to 10 PM, with a stunning light and sound show after dark. It\'s located in the center of Jewel\'s Forest Valley. 💡 Would you like to know about other attractions at Jewel?',
-            'halal': 'Changi Airport has many halal-certified dining options! Some popular choices include McDonald\'s (T1, T2, T3), Subway, Food Republic food courts, and various local restaurants with halal certification. Look for the halal certification displayed at each outlet. 💡 Would you like specific restaurant recommendations by terminal?',
-            'dining': 'Changi Airport offers world-class dining across all terminals! From local favorites like Singapore noodles and laksa to international cuisines, you\'ll find options 24/7. Food courts, cafes, and fine dining restaurants are available throughout. 💡 Any specific cuisine or dietary requirements you\'re looking for?',
-            'shopping': 'Duty-free shopping at Changi is legendary! You\'ll find savings on alcohol, tobacco, perfumes, chocolates, and luxury goods. Don\'t miss the Singapore-exclusive products and local souvenirs. DFS and other major retailers operate across all terminals. 💡 Looking for any particular brands or products?',
-            'transportation': 'Getting to the city is easy! Options include: MRT (cheapest - about S$2.50, 45 mins), Taxi (S$20-40, 30-45 mins), Private car services, and public buses. The MRT connects directly to Changi Airport station. 💡 Which option would work best for your travel plans?',
-            'jewel': 'Jewel Changi Airport is amazing for families! Key attractions include the Rain Vortex waterfall, Canopy Park with slides and mazes, indoor gardens, shopping, and dining. Many activities are free, while Canopy Park has ticketed attractions. 💡 What age group are you planning activities for?'
+            'rain vortex': 'The **Rain Vortex** at *Jewel Changi Airport* is the world\'s tallest indoor waterfall at 40 meters. Show times are typically every hour from 9 AM to 10 PM with light shows after dark.',
+            
+            'halal': '**Halal dining options** in Changi:\n\n1. **McDonald\'s** - *T1, T2, T3*\n2. **Subway** - *Multiple terminals*\n3. **Food Republic** - *Food courts*\n\nLook for halal certification displays at each outlet.',
+            
+            'dining': '**Changi dining highlights:**\n\n1. **Food courts** - *All terminals, 24/7*\n2. **Local cuisine** - *Singapore noodles, laksa*\n3. **International options** - *Various cuisines*\n\nDining available throughout all terminals.',
+            
+            'shopping': '**Duty-free highlights:**\n\n1. **Alcohol & tobacco** - *Departure halls*\n2. **Perfumes & cosmetics** - *DFS stores*\n3. **Singapore souvenirs** - *Various terminals*\n\nDFS operates across all terminals.',
+            
+            'transportation': '**City transport options:**\n\n1. **MRT** - *$2.50, 45 mins*\n2. **Taxi** - *$20-40, 30-45 mins*\n3. **Bus services** - *Various routes*\n\nMRT connects directly to Changi Airport station.',
+            
+            'jewel': '**Jewel family attractions:**\n\n1. **Rain Vortex** - *Free viewing*\n2. **Canopy Park** - *Ticketed activities*\n3. **Indoor gardens** - *Free access*\n4. **Shopping & dining** - *Multiple levels*'
         };
 
         // Auto-resize textarea
@@ -502,8 +474,6 @@
             }
 
             try {
-                console.log('Sending request to:', `${API_URL}/chat`);
-                
                 // Extended timeout for first request or if backend was down
                 const timeoutDuration = (isFirstRequest || backendStatus !== 'healthy') ? 120000 : 45000;
                 
@@ -524,23 +494,16 @@
                 });
 
                 clearTimeout(timeoutId);
-                console.log('Response status:', response.status);
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('Error response:', errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
-                console.log('Response data:', data);
                 
-                // Add bot response to chat
-                addMessage(data.response, 'bot', {
-                    sources: data.sources,
-                    retrievedCount: data.retrieved_count,
-                    timestamp: data.timestamp
-                });
+                // Add bot response to chat (no sources displayed)
+                addMessage(data.response, 'bot');
 
                 isFirstRequest = false;
                 backendStatus = 'healthy';
@@ -550,12 +513,12 @@
                 console.error('Error:', error);
                 retryCount++;
                 
-                let errorMessage = "I'm having trouble connecting to the backend service. ";
+                let errorMessage = "I'm having trouble connecting to the backend service.";
                 
                 if (error.name === 'AbortError') {
-                    errorMessage = "The request timed out. The service might be starting up or unavailable.";
+                    errorMessage = "Request timed out. Service might be starting up.";
                 } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-                    errorMessage = "Connection failed. This usually happens when the backend service is starting up or unavailable.";
+                    errorMessage = "Connection failed. Backend service may be unavailable.";
                     backendStatus = 'down';
                 }
                 
@@ -566,16 +529,15 @@
                     
                     const demoNotice = document.createElement('div');
                     demoNotice.className = 'demo-mode';
-                    demoNotice.innerHTML = '🔧 Backend service unavailable - Running in DEMO mode with sample responses';
+                    demoNotice.innerHTML = '🔧 Backend unavailable - Running in DEMO mode';
                     messagesContainer.appendChild(demoNotice);
                     scrollToBottom();
                     
                     // Handle the current message in demo mode
                     setTimeout(() => handleDemoResponse(message), 1000);
                 } else {
-                    errorMessage += `\n\nRetrying automatically in ${retryCount * 3} seconds...`;
-                    
-                    addMessage(errorMessage, 'bot', { error: true });
+                    errorMessage += ` Retrying in ${retryCount * 3} seconds...`;
+                    addMessage(errorMessage, 'bot');
                     
                     // Auto-retry with exponential backoff
                     setTimeout(() => {
@@ -596,7 +558,7 @@
             
             setTimeout(() => {
                 const messageLower = message.toLowerCase();
-                let response = "I'm currently running in demo mode. ";
+                let response = "I'm in demo mode with limited responses. Visit changiairport.com for full information.";
                 
                 // Find matching demo response
                 for (const [keyword, demoResponse] of Object.entries(demoResponses)) {
@@ -606,17 +568,7 @@
                     }
                 }
                 
-                // Default demo response
-                if (response === "I'm currently running in demo mode. ") {
-                    response = "I'm currently running in demo mode with limited responses. For the full Changi Airport experience with real-time information, the backend service needs to be available. You can visit changiairport.com for official information, or try asking about: Rain Vortex, halal dining, shopping, transportation, or Jewel attractions. 💡 Is there anything specific about Changi Airport you'd like to know?";
-                }
-                
-                addMessage(response, 'bot', { 
-                    sources: ['Demo Mode - Limited Information'],
-                    retrievedCount: 0,
-                    timestamp: new Date().toISOString()
-                });
-                
+                addMessage(response, 'bot');
                 hideTypingIndicator();
             }, 1500);
         }
@@ -632,23 +584,12 @@
             
             let messageHTML = `<div class="message-content">${content}</div>`;
             
-            if (metadata.sources && metadata.sources.length > 0) {
-                messageHTML += `
-                    <div class="sources">
-                        <div class="sources-title">📚 Sources:</div>
-                        ${metadata.sources.map(source => `<div>• ${source}</div>`).join('')}
-                    </div>
-                `;
-            }
-
-            if (metadata.retrievedCount !== undefined || metadata.timestamp) {
-                messageHTML += `
-                    <div class="message-info">
-                        <span>${metadata.retrievedCount !== undefined ? `${metadata.retrievedCount} sources found` : ''}</span>
-                        <span>${metadata.timestamp ? new Date(metadata.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</span>
-                    </div>
-                `;
-            }
+            // Only show timestamp, no sources or counts
+            messageHTML += `
+                <div class="message-info">
+                    <span>${new Date().toLocaleTimeString()}</span>
+                </div>
+            `;
 
             messageDiv.innerHTML = messageHTML;
             messagesContainer.appendChild(messageDiv);
@@ -682,8 +623,6 @@
         // Test backend connection on load
         async function testConnection() {
             try {
-                console.log('Testing connection to:', `${API_URL}/health`);
-                
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 20000);
 
@@ -699,32 +638,29 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Backend connection successful:', data);
                     backendStatus = data.status || 'healthy';
                     
                     if (data.status === 'healthy' || data.status === 'starting') {
-                        showConnectionStatus('🚀 Connected to backend successfully!', 'success');
+                        showConnectionStatus('🚀 Connected successfully!', 'success');
                     } else {
-                        showConnectionStatus('⚠️ Backend service is starting up. This may take a moment.', 'warning');
+                        showConnectionStatus('⚠️ Service starting up...', 'warning');
                     }
                 } else {
-                    console.warn('⚠️ Backend health check failed:', response.status);
                     throw new Error(`HTTP ${response.status}`);
                 }
             } catch (error) {
-                console.error('❌ Backend connection failed:', error);
                 backendStatus = 'down';
                 
                 if (error.name === 'AbortError') {
-                    showConnectionStatus('⏱️ Backend connection timeout. Service may be starting up or unavailable.', 'warning');
+                    showConnectionStatus('⏱️ Connection timeout. Service may be starting.', 'warning');
                 } else {
-                    showConnectionStatus('❌ Backend service unavailable. Will switch to demo mode if needed.', 'error');
+                    showConnectionStatus('❌ Service unavailable. Demo mode available.', 'error');
                 }
                 
                 // After 30 seconds, suggest demo mode
                 setTimeout(() => {
                     if (backendStatus === 'down') {
-                        showConnectionStatus('💡 Click any suggestion to try demo mode with sample responses!', 'warning');
+                        showConnectionStatus('💡 Try demo mode with sample responses!', 'warning');
                     }
                 }, 30000);
             }
@@ -736,13 +672,13 @@
             statusDiv.innerHTML = message;
             messagesContainer.appendChild(statusDiv);
             
-            // Auto-remove success messages after 10 seconds
+            // Auto-remove success messages after 8 seconds
             if (type === 'success') {
                 setTimeout(() => {
                     if (statusDiv.parentNode) {
                         statusDiv.parentNode.removeChild(statusDiv);
                     }
-                }, 10000);
+                }, 8000);
             }
             
             scrollToBottom();
@@ -751,18 +687,12 @@
         // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             messageInput.focus();
-            
-            // Test connection after a short delay
             setTimeout(testConnection, 1000);
-
-            console.log('Frontend initialized');
-            console.log('API URL:', API_URL);
         });
 
         // Retry connection every 45 seconds if backend is down
         setInterval(() => {
             if (backendStatus === 'down' || backendStatus === 'unknown') {
-                console.log('Retrying backend connection...');
                 testConnection();
             }
         }, 45000);
@@ -770,7 +700,6 @@
         // Auto-detect API URL for development
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             API_URL = 'http://localhost:8000';
-            console.log('Development mode detected, using local API:', API_URL);
         }
     </script>
 </body>
