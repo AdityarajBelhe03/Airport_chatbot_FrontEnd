@@ -43,7 +43,7 @@
         }
 
         .chat-header::before {
-            content: '✈️';
+            content: '';
             font-size: 2rem;
             position: absolute;
             left: 25px;
@@ -370,11 +370,11 @@
                 <p>I'm here to help you navigate our world-class facilities, from dining and shopping to transportation and the amazing attractions at Jewel Changi Airport.</p>
                 
                 <div class="suggestions">
-                    <div class="suggestion-chip" onclick="sendSuggestion('Rain Vortex show times')">🌊 Rain Vortex</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('Halal dining options')">🍽️ Halal Food</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('Duty-free shopping')">🛍️ Duty-Free</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('Transportation to city')">🚊 Transport</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion('Jewel attractions')">✨ Jewel</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Rain Vortex show times')"> Rain Vortex</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Halal dining options')"> Halal Food</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Duty-free shopping')"> Duty-Free</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Transportation to city')"> Transport</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion('Jewel attractions')"> Jewel</div>
                 </div>
             </div>
         </div>
@@ -652,15 +652,15 @@
                 backendStatus = 'down';
                 
                 if (error.name === 'AbortError') {
-                    showConnectionStatus('⏱️ Connection timeout. Service may be starting.', 'warning');
+                    showConnectionStatus(' Connection timeout. Service may be starting.', 'warning');
                 } else {
-                    showConnectionStatus('❌ Service unavailable. Demo mode available.', 'error');
+                    showConnectionStatus(' Service unavailable. Demo mode available.', 'error');
                 }
                 
                 // After 30 seconds, suggest demo mode
                 setTimeout(() => {
                     if (backendStatus === 'down') {
-                        showConnectionStatus('💡 Try demo mode with sample responses!', 'warning');
+                        showConnectionStatus(' Try demo mode with sample responses!', 'warning');
                     }
                 }, 30000);
             }
